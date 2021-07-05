@@ -1,0 +1,11 @@
+version: '3.3'
+services:
+  docker-ripper:
+    container_name: Ripper
+    privileged: true
+    volumes:
+      - '/path/to/config/:/config:rw'
+      - '/path/to/rips/:/out:rw'
+    devices:
+      - '/dev/sr0:/dev/sr0'
+    image: edgd1er/docker-ripper
