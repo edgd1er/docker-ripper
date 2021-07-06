@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Ripper Web UI
-# Projekt von https://github.com/rix1337
+# Project of https://github.com/rix1337
 
 """Ripper.
 
@@ -10,6 +10,7 @@ Usage:
          [--log=<LOGFILE>]
          [--user=<USERNAME>]
          [--pass=<PASSWORD>]
+         [--debug=<True|False>]
 
 Options:
   --port=<PORT>          Set the webserver's port
@@ -17,11 +18,11 @@ Options:
   --log=<LOGFILE>        Set the location of the log file
   --user=<USERNAME>      Set the username for webserver (requires pass to be set)
   --pass=<PASSWORD>      Set the password for webserver (requires username to be set)
+  --debug=<True|False>   enable debug mode
 """
 
 import base64
 import os
-import re
 from functools import wraps
 
 from docopt import docopt
@@ -38,28 +39,26 @@ def app_container():
     arguments = docopt(__doc__, version='Ripper')
 
     base_dir = '.'
+    debug = False
 
     app = Flask(__name__, template_folder=os.path.join(base_dir, 'web'))
     app.config["TEMPLATES_AUTO_RELOAD"] = True
 
-    if arguments['--port']:
-        port = arguments['--port']
-    else:
-        port = 9090
+    port = arguments['--port'] if arguments['--port'] else 9090
 
+    prefix = ""
     if arguments['--prefix']:
         prefix = arguments['--prefix']
         if not prefix[0] == '/':
             prefix = '/' + prefix
-    else:
-        prefix = ""
 
-    if arguments['--log']:
-        log_file = arguments['--log']
-    else:
-        log_file = "/config/Ripper.log"
+    debug = os.getenv('DEBUG', False)
 
-    def check_auth(username, password):
+    log_file = arguments['--log'] if arguments['--log'] else "/config/Ripper.log"
+
+    def check_auth(username='user', password='pass'):
+        if debug:
+            print(f'user: {username} == {arguments["--user"]}, pass: {password} == {arguments["--pass"]}')
         return username == arguments['--user'] and password == arguments['--pass']
 
     def authenticate():
@@ -109,23 +108,21 @@ def app_container():
                 log = []
                 if os.path.isfile(log_file):
                     logfile = open(log_file)
-                    i = 0
                     for line in reversed(logfile.readlines()):
                         if line and line != "\n":
                             log.append(line)
-                        i += 1
                 return jsonify(
                     {
                         "log": log,
                     }
                 )
-            except:
+            except OSError:
                 return "Failed", 400
         elif request.method == 'DELETE':
             try:
                 open(log_file, 'w').close()
                 return "Success", 200
-            except:
+            except OSError:
                 return "Failed", 400
         else:
             return "Failed", 405
@@ -133,24 +130,22 @@ def app_container():
     @app.route(prefix + "/api/log_entry/<b64_entry>", methods=['DELETE'])
     @requires_auth
     def get_delete_log_entry(b64_entry):
-        if request.method == 'DELETE':
-            try:
-                entry = decode_base64(b64_entry)
-                log = []
-                if os.path.isfile(log_file):
-                    logfile = open(log_file)
-                    for line in reversed(logfile.readlines()):
-                        if line and line != "\n":
-                            if entry not in line:
-                                log.append(line)
-                    log = "".join(reversed(log))
-                    with open(log_file, 'w') as file:
-                        file.write(log)
-                return "Success", 200
-            except:
-                return "Failed", 400
-        else:
+        if request.method != 'DELETE':
             return "Failed", 405
+        try:
+            entry = decode_base64(b64_entry)
+            log = []
+            if os.path.isfile(log_file):
+                logfile = open(log_file)
+                for line in reversed(logfile.readlines()):
+                    if line and line != "\n" and entry not in line:
+                        log.append(line)
+                    log = "".join(reversed(log))
+                with open(log_file, 'w') as file:
+                    file.write(log)
+            return "Success", 200
+        except OSError:
+            return "Failed", 400
 
     serve(app, host='0.0.0.0', port=port, threads=10, _quiet=True)
 

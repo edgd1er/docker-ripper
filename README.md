@@ -1,6 +1,13 @@
 # docker-ripper
 
-[![Github Sponsorship](https://img.shields.io/badge/support-me-red.svg)](https://github.com/users/rix1337/sponsorship)
+Forked from https://github.com/rix1337/docker-ripper
+
+## Differences
+* Replace phusion-baseimage with debian-stretch
+* use multi stage to build makemkv: 1.16.4
+* Use supervisor to run apps.
+* User and group ID are settable.
+
 
 This container will detect optical disks by their type and rip them automatically.
 
@@ -23,13 +30,15 @@ mkdir config rips
 
 #### (2) Find out the name(s) of the optical drive
 
-```
-lsscsi -g
-```
+get your drive name: 
 
-In this example, /dev/sr0 and /dev/sg0 are the two files that refer to a single optical drive. These names will be
-needed for the docker run command.  
-![lsscsi -g](screenshots/lsscsi.png)
+`dmesg | egrep -i --color 'cdrom|dvd|cd/rw|writer'` 
+
+or
+
+`less /proc/sys/dev/cdrom/info`
+
+
 
 ## Docker run
 
@@ -39,16 +48,13 @@ directories. If you created /home/yourusername/config and /home/yourusername/rip
 ```
 docker run -d \
   --name="Ripper" \
+  --privileged
   -v /path/to/config/:/config:rw \
   -v /path/to/rips/:/out:rw \
   --device=/dev/sr0:/dev/sr0 \
   --device=/dev/sg0:/dev/sg0 \
-  rix1337/docker-ripper
+  edgd1er/docker-ripper
   ```
-
-Screenshot of Docker run command with the example provided  
-![docker run](screenshots/dockerrun.png)
-
 
 #### Using the web UI for logs
 

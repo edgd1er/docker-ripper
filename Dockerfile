@@ -1,6 +1,9 @@
-FROM phusion/baseimage:focal-1.0.0
-MAINTAINER rix1337
+FROM debian:buster AS builder
 
+ARG MKVVERSION=1.16.3
+ARG FDKVERSION=2.0.2
+ARG aptCacher
+ARG PREFIX=/usr/local
 # Set correct environment variables
 ENV HOME /root
 ENV DEBIAN_FRONTEND noninteractive
@@ -8,41 +11,97 @@ ENV LC_ALL C.UTF-8
 ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US.UTF-8
 
-# Use baseimage-docker's init system
-CMD ["/sbin/my_init"]
+RUN if [ -n ${aptCacher} ]; then printf "Acquire::http::Proxy \"http://%s:3142\";" "${aptCacher}">/etc/apt/apt.conf.d/01proxy \
+    && printf "Acquire::https::Proxy \"http://%s:3142\";" "${aptCacher}">>/etc/apt/apt.conf.d/01proxy ; fi  \
+    #&& echo "Dir::Cache \"\";\nDir::Cache::archives \"\";" | tee /etc/apt/apt.conf.d/02nocache && \
+    && printf "#/etc/dpkg/dpkg.cfg.d/01_nodoc\n\n# Delete locales\npath-exclude=/usr/share/locale/*\n\n# Delete man pages\npath-exclude=/usr/share/man/*\n\n# Delete docs\npath-exclude=/usr/share/doc/*\npath-include=/usr/share/doc/*/copyright" | tee /etc/dpkg/dpkg.cfg.d/03nodoc \
+    #Massive apt install of jeedom requirements to optimise downloads
+    && buildDeps='build-essential pkg-config libc6-dev libssl-dev libexpat1-dev libavcodec-dev libgl1-mesa-dev \
+    qtbase5-dev zlib1g-dev'  \
+    && apt-get update && apt-get install -y --no-install-recommends git wget ca-certificates apt-transport-https \
+    software-properties-common libavcodec-extra $buildDeps;
 
-# Configure user nobody to match unRAID's settings
-RUN \
- usermod -u 99 nobody && \
- usermod -g 100 nobody && \
- usermod -d /home nobody && \
- chown -R nobody:users /home
+WORKDIR /root/
+#build fdk
+RUN wget http://downloads.sourceforge.net/opencore-amr/fdk-aac-$FDKVERSION.tar.gz \
+    && tar xvf fdk-aac-$FDKVERSION.tar.gz \
+    && cd fdk-aac-$FDKVERSION && ./configure --prefix=/usr --disable-static \
+    && make && make install
 
-# Move Files
-COPY root/ /
-RUN chmod +x /etc/my_init.d/*.sh
+#build ffmpeg
+RUN git clone git://source.ffmpeg.org/ffmpeg.git ffmpeg \
+    && cd ffmpeg \
+    && ./configure --prefix=/tmp/ffmpeg --enable-static --disable-shared --enable-pic --disable-yasm --enable-libfdk-aac \
+    && make && make install && make clean
+
+RUN wget http://www.makemkv.com/download/makemkv-oss-$MKVVERSION.tar.gz -P /tmp/ \
+    && mkdir -p /tmp/makemkv-oss-$MKVVERSION /tmp/makemkv-bin-$MKVVERSION \
+    && echo "Building makemkv-oss-$MKVVERSION.tar.gz" \
+    && tar xvf /tmp/makemkv-oss-$MKVVERSION.tar.gz -C /tmp/ \
+    && cd /tmp/makemkv-oss-$MKVVERSION && ls -al && chmod +x ./configure && ./configure PREFIX="${PREFIX}" \
+    && make PREFIX="${PREFIX}" && make install PREFIX="${PREFIX}" && make clean \
+    && rm /tmp/makemkv-oss-$MKVVERSION.tar.gz
+
+RUN TARFILE=makemkv-bin-$MKVVERSION.tar.gz && echo "Building $TARFILE" \
+    && wget http://www.makemkv.com/download/$TARFILE -P /tmp/ \
+    && tar xvf /tmp/$TARFILE -C /tmp/ \
+    && cd /tmp/${TARFILE%%.tar.gz} && pwd && mkdir tmp && touch tmp/eula_accepted && make && make install \
+    && make clean && rm /tmp/makemkv-bin-$MKVVERSION.tar.gz
+
+
+FROM debian:buster-slim
+# oss
+COPY --from=builder /usr/lib/libdriveio.so.0 /usr/lib/libdriveio.so.0
+COPY --from=builder /usr/lib/libmakemkv.so.1 /usr/lib/libmakemkv.so.1
+COPY --from=builder /usr/lib/libmmbd.so.0 /usr/lib/libmmbd.so.0
+COPY --from=builder /usr/bin/makemkv* /usr/bin/
+COPY --from=builder /usr/share/applications/makemkv.desktop /usr/share/applications/makemkv.desktop
+COPY --from=builder /usr/share/icons/hicolor/16x16/apps/makemkv.png /usr/share/icons/hicolor/16x16/apps/makemkv.png
+COPY --from=builder /usr/share/icons/hicolor/22x22/apps/makemkv.png /usr/share/icons/hicolor/22x22/apps/makemkv.png
+COPY --from=builder /usr/share/icons/hicolor/32x32/apps/makemkv.png /usr/share/icons/hicolor/32x32/apps/makemkv.png
+COPY --from=builder /usr/share/icons/hicolor/64x64/apps/makemkv.png /usr/share/icons/hicolor/64x64/apps/makemkv.png
+COPY --from=builder /usr/share/icons/hicolor/128x128/apps/makemkv.png /usr/share/icons/hicolor/128x128/apps/makemkv.png
+COPY --from=builder /usr/share/icons/hicolor/256x256/apps/makemkv.png /usr/share/icons/hicolor/256x256/apps/makemkv.png
+COPY --from=builder /usr/bin/mmccextr /usr/bin/mmccextr
+# bin
+COPY --from=builder /usr/share/MakeMKV /usr/share/MakeMKV
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Install software
-RUN apt-get update && \
-    apt-get -y --allow-unauthenticated install --no-install-recommends gddrescue wget eject git && \
-    add-apt-repository ppa:heyarje/makemkv-beta && \
-    apt-get update && \
-    apt-get -y install makemkv-bin makemkv-oss ccextractor && \
-    apt-get -y install abcde eyed3 && \
-    apt-get -y install flac lame mkcue speex vorbis-tools vorbisgain id3 id3v2 && \
-    apt-get -y autoremove
+RUN apt-get update && apt-get upgrade -y\
+    && apt-get -y install --no-install-recommends supervisor wget eject git curl gddrescue abcde eyed3 flac lame \
+    mkcue speex vorbis-tools vorbisgain id3 id3v2 libavcodec-extra \
+    # Install python for web ui
+    && apt-get -y install --no-install-recommends python3 python3-pip python3-setuptools \
+    && pip3 install wheel docopt flask waitress setuptools \
+    && apt-get -y autoremove
 
-# Install python for web ui
-RUN apt-get update && \
-    apt-get -y --allow-unauthenticated install --no-install-recommends python3 python3-pip && \
-    pip3 install docopt flask waitress && \
-    apt-get -y autoremove
+# Copy project Files
+COPY root/ /
 
- # Disable SSH
-RUN rm -rf /etc/service/sshd /etc/my_init.d/00_regen_ssh_host_keys.sh
+RUN cd /usr/bin && ln -s -f makemkvcon sdftool \
+    && chmod 755 /ripper/*.sh /web/*.py \
+# Configure user nobody to match unRAID's settings
+    && usermod -u 99 nobody \
+    && usermod -g 100 nobody \
+    && usermod -d /home nobody \
+    && chown -R nobody:users /home
+
+# Start supervisord as init system
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
 
 # Clean up temp files
-RUN rm -rf \
-    	/tmp/* \
-    	/var/lib/apt/lists/* \
-    	/var/tmp/*
+RUN echo "Purge the dependencies"; \
+    apt-get purge -y --auto-remove $buildDeps; \
+    echo "Purge the apt cache"; \
+        rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+LABEL maintainer="edgd1er <edgd1er@htomail.com>" \
+      org.label-schema.build-date=$BUILD_DATE \
+      org.label-schema.name="Ripper" \
+      org.label-schema.description="Provides automatic CD/DVD ripping tool in Docker." \
+      org.label-schema.url="https://hub.docker.com/r/lasley/makemkvcon/" \
+      org.label-schema.vcs-ref=$VCS_REF \
+      org.label-schema.vcs-url="https://github.com/edgd1er/docker-ripper" \
+      org.label-schema.version=$MKVVERSION \
+      org.label-schema.schema-version="1.0"
