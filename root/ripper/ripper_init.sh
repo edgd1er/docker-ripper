@@ -1,28 +1,40 @@
 #!/bin/bash
 
 set -euo pipefail
+
+chmod +x $0
+chmod +x /ripper/*.sh /config/*.sh /web/web.py
 # copy default script
 if [[ ! -f /config/ripper.sh ]]; then
   cp /ripper/ripper.sh /config/ripper.sh
 fi
 
-DEBUG=${DEBUG:-"False"}
-if [ 'true' == ${DEBUG,,} ]; then
+TZ=${TZ:-'America/Chicago'}
+NUID=${NUID:-99}
+NGID=${NGID:-100}
+DEBUG=${DEBUG:-"false"}
+if [ 'true' == "${DEBUG,,}" ]; then
   set -xo verbose
 fi
 
 ##Functions
-setTimeZone() {
+setTimeZone(){
   [[ ${TZ} == $(cat /etc/timezone) ]] && return
   echo "Setting timezone to ${TZ}"
   ln -fs /usr/share/zoneinfo/${TZ} /etc/localtime
   dpkg-reconfigure -fnoninteractive tzdata
 }
 
+getVersion(){
+  echo "latest version: $(curl -s http://www.makemkv.com/download/ | grep -Eom1 "MakeMKV 1.[0-9]+\.[0-9]+")"
+}
+
 setTimeZone
 
-usermod -u ${NUID:-99} nobody
-usermod -g ${NGID:-100} nobody
+getVersion
+
+[[ $(id -u nobody ) -ne ${NUID:-99} ]] && echo "setting uid as ${NUID}" && usermod -u ${NUID:-99} nobody
+[[ $(id -g nobody ) -ne ${NGID:-100} ]] && echo "setting gid as ${NGID}" && usermod -g ${NGID:-100} nobody
 
 # fetching MakeMKV beta key
 KEY=$(curl --silent 'https://forum.makemkv.com/forum/viewtopic.php?f=5&t=1053' | grep -oP 'T-[\w\d@]{66}')

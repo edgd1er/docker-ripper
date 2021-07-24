@@ -70,30 +70,30 @@ COPY --from=builder /usr/bin/mmccextr /usr/bin/mmccextr
 COPY --from=builder /usr/share/MakeMKV /usr/share/MakeMKV
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-# Copy project Files
-COPY root/ /
-
 # Install software
 # hadolint ignore=DL3008,DL3013,DL3042,SC2086
-RUN apt-get update && apt-get upgrade -y\
+RUN export DEBIAN_FRONTEND=noninteractive && apt-get update && apt-get upgrade -y \
     && apt-get -y install --no-install-recommends supervisor wget eject git curl gddrescue abcde eyed3 flac lame \
     mkcue speex vorbis-tools vorbisgain id3 id3v2 libavcodec-extra \
     # Install python for web ui
     && apt-get -y install --no-install-recommends python3 python3-pip python3-setuptools \
-    && pip3 install wheel docopt flask waitress setuptools \
+    python-pip-whl python3-distutils python3-lib2to3 build-essential python3-dev python3-wheel \
+    && pip3 install wheel docopt flask waitress setuptools  \
     && apt-get -y autoremove \
-    && /usr/bin && ln -s -f makemkvcon sdftool \
-    && chmod 755 /ripper/*.sh /web/*.py \
+    && ln -s -f makemkvcon sdftool \
     # Configure user nobody to match unRAID's settings
     && usermod -u 99 nobody \
     && usermod -g 100 nobody \
     && usermod -d /home nobody \
     && chown -R nobody:users /home \
     # Clean up temp files
-    && echo "Purge the dependencies"; \
-    apt-get purge -y --auto-remove $buildDeps; \
-    echo "Purge the apt cache"; \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    && echo "Purge the dependencies"  \
+    && apt-get purge -y --auto-remove $buildDeps \
+    && echo "Purge the apt cache" \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Copy project Files
+COPY root/ /
 
 # Start supervisord as init system
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]

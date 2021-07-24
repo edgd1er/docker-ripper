@@ -7,6 +7,10 @@ Forked from https://github.com/rix1337/docker-ripper
 * use multi stage to build makemkv: 1.16.4 (not depending on ppa updates)
 * Use supervisor to run apps.
 * User and group ID are settable.
+* Show latest makemkv version.  
+* added options:
+    * NUID/NGID: set nobody UID/GID (chown output dir)
+    * Define timezone with TZ
 
 This container will detect optical disks by their type and rip them automatically.
 

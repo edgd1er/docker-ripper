@@ -1,11 +1,19 @@
 version: '3.3'
 services:
   docker-ripper:
+    image: edgd1er/docker-ripper
     container_name: Ripper
+    ports:
+      - "9191:9090"
+    environment:
+      LOGIN: "john"
+      PASS: "doe"
+      PREFIX: ''
+      DEBUG: 'False'
+      TZ: "America/Chicago"
     privileged: true
     volumes:
       - '/path/to/config/:/config:rw'
       - '/path/to/rips/:/out:rw'
     devices:
       - '/dev/sr0:/dev/sr0'
-    image: edgd1er/docker-ripper
