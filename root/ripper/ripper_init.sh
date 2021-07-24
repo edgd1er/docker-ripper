@@ -11,6 +11,16 @@ if [ 'true' == ${DEBUG,,} ]; then
   set -xo verbose
 fi
 
+##Functions
+setTimeZone() {
+  [[ ${TZ} == $(cat /etc/timezone) ]] && return
+  echo "Setting timezone to ${TZ}"
+  ln -fs /usr/share/zoneinfo/${TZ} /etc/localtime
+  dpkg-reconfigure -fnoninteractive tzdata
+}
+
+setTimeZone
+
 usermod -u ${NUID:-99} nobody
 usermod -g ${NGID:-100} nobody
 

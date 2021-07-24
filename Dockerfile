@@ -11,6 +11,10 @@ ENV LC_ALL C.UTF-8
 ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US.UTF-8
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+WORKDIR /root/
+# 3008 Pin versions in apt get install
+# hadolint ignore=DL3008,DL3003,SC2086
 RUN if [ -n ${aptCacher} ]; then printf "Acquire::http::Proxy \"http://%s:3142\";" "${aptCacher}">/etc/apt/apt.conf.d/01proxy \
     && printf "Acquire::https::Proxy \"http://%s:3142\";" "${aptCacher}">>/etc/apt/apt.conf.d/01proxy ; fi  \
     #&& echo "Dir::Cache \"\";\nDir::Cache::archives \"\";" | tee /etc/apt/apt.conf.d/02nocache && \
@@ -19,37 +23,36 @@ RUN if [ -n ${aptCacher} ]; then printf "Acquire::http::Proxy \"http://%s:3142\"
     && buildDeps='build-essential pkg-config libc6-dev libssl-dev libexpat1-dev libavcodec-dev libgl1-mesa-dev \
     qtbase5-dev zlib1g-dev'  \
     && apt-get update && apt-get install -y --no-install-recommends git wget ca-certificates apt-transport-https \
-    software-properties-common libavcodec-extra $buildDeps;
-
-WORKDIR /root/
-#build fdk
-RUN wget http://downloads.sourceforge.net/opencore-amr/fdk-aac-$FDKVERSION.tar.gz \
+    software-properties-common libavcodec-extra $buildDeps \
+    # build fdk
+    && wget -nv http://downloads.sourceforge.net/opencore-amr/fdk-aac-$FDKVERSION.tar.gz \
     && tar xvf fdk-aac-$FDKVERSION.tar.gz \
     && cd fdk-aac-$FDKVERSION && ./configure --prefix=/usr --disable-static \
-    && make && make install
-
-#build ffmpeg
-RUN git clone git://source.ffmpeg.org/ffmpeg.git ffmpeg \
+    && make && make install \
+    # build ffmpeg
+    && git clone git://source.ffmpeg.org/ffmpeg.git ffmpeg \
     && cd ffmpeg \
     && ./configure --prefix=/tmp/ffmpeg --enable-static --disable-shared --enable-pic --disable-yasm --enable-libfdk-aac \
-    && make && make install && make clean
-
-RUN wget http://www.makemkv.com/download/makemkv-oss-$MKVVERSION.tar.gz -P /tmp/ \
+    && make && make install && make clean \
+    # build makemkv-oss
+    && wget -nv http://www.makemkv.com/download/makemkv-oss-$MKVVERSION.tar.gz -P /tmp/ \
     && mkdir -p /tmp/makemkv-oss-$MKVVERSION /tmp/makemkv-bin-$MKVVERSION \
     && echo "Building makemkv-oss-$MKVVERSION.tar.gz" \
     && tar xvf /tmp/makemkv-oss-$MKVVERSION.tar.gz -C /tmp/ \
     && cd /tmp/makemkv-oss-$MKVVERSION && ls -al && chmod +x ./configure && ./configure PREFIX="${PREFIX}" \
     && make PREFIX="${PREFIX}" && make install PREFIX="${PREFIX}" && make clean \
-    && rm /tmp/makemkv-oss-$MKVVERSION.tar.gz
-
-RUN TARFILE=makemkv-bin-$MKVVERSION.tar.gz && echo "Building $TARFILE" \
-    && wget http://www.makemkv.com/download/$TARFILE -P /tmp/ \
+    && rm /tmp/makemkv-oss-$MKVVERSION.tar.gz \
+    # build makemkv-bin \
+    && TARFILE=makemkv-bin-$MKVVERSION.tar.gz && echo "Building $TARFILE" \
+    && wget -nv http://www.makemkv.com/download/$TARFILE -P /tmp/ \
     && tar xvf /tmp/$TARFILE -C /tmp/ \
     && cd /tmp/${TARFILE%%.tar.gz} && pwd && mkdir tmp && touch tmp/eula_accepted && make && make install \
     && make clean && rm /tmp/makemkv-bin-$MKVVERSION.tar.gz
 
 
 FROM debian:buster-slim
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # oss
 COPY --from=builder /usr/lib/libdriveio.so.0 /usr/lib/libdriveio.so.0
 COPY --from=builder /usr/lib/libmakemkv.so.1 /usr/lib/libmakemkv.so.1
@@ -67,40 +70,39 @@ COPY --from=builder /usr/bin/mmccextr /usr/bin/mmccextr
 COPY --from=builder /usr/share/MakeMKV /usr/share/MakeMKV
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
+# Copy project Files
+COPY root/ /
+
 # Install software
+# hadolint ignore=DL3008,DL3013,DL3042,SC2086
 RUN apt-get update && apt-get upgrade -y\
     && apt-get -y install --no-install-recommends supervisor wget eject git curl gddrescue abcde eyed3 flac lame \
     mkcue speex vorbis-tools vorbisgain id3 id3v2 libavcodec-extra \
     # Install python for web ui
     && apt-get -y install --no-install-recommends python3 python3-pip python3-setuptools \
     && pip3 install wheel docopt flask waitress setuptools \
-    && apt-get -y autoremove
-
-# Copy project Files
-COPY root/ /
-
-RUN cd /usr/bin && ln -s -f makemkvcon sdftool \
+    && apt-get -y autoremove \
+    && /usr/bin && ln -s -f makemkvcon sdftool \
     && chmod 755 /ripper/*.sh /web/*.py \
-# Configure user nobody to match unRAID's settings
+    # Configure user nobody to match unRAID's settings
     && usermod -u 99 nobody \
     && usermod -g 100 nobody \
     && usermod -d /home nobody \
-    && chown -R nobody:users /home
+    && chown -R nobody:users /home \
+    # Clean up temp files
+    && echo "Purge the dependencies"; \
+    apt-get purge -y --auto-remove $buildDeps; \
+    echo "Purge the apt cache"; \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Start supervisord as init system
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
-
-# Clean up temp files
-RUN echo "Purge the dependencies"; \
-    apt-get purge -y --auto-remove $buildDeps; \
-    echo "Purge the apt cache"; \
-        rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 LABEL maintainer="edgd1er <edgd1er@htomail.com>" \
       org.label-schema.build-date=$BUILD_DATE \
       org.label-schema.name="Ripper" \
       org.label-schema.description="Provides automatic CD/DVD ripping tool in Docker." \
-      org.label-schema.url="https://hub.docker.com/r/lasley/makemkvcon/" \
+      org.label-schema.url="https://hub.docker.com/r/edgd1er/docker-ripper" \
       org.label-schema.vcs-ref=$VCS_REF \
       org.label-schema.vcs-url="https://github.com/edgd1er/docker-ripper" \
       org.label-schema.version=$MKVVERSION \

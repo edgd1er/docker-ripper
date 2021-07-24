@@ -4,10 +4,9 @@ Forked from https://github.com/rix1337/docker-ripper
 
 ## Differences
 * Replace phusion-baseimage with debian-stretch
-* use multi stage to build makemkv: 1.16.4
+* use multi stage to build makemkv: 1.16.4 (not depending on ppa updates)
 * Use supervisor to run apps.
 * User and group ID are settable.
-
 
 This container will detect optical disks by their type and rip them automatically.
 
@@ -106,7 +105,7 @@ app_ccextractor = "/usr/local/bin/ccextractor"
 
 ### How do I set ripper to do something else?
 
-_Ripper will place a bash-file ([ripper.sh](https://github.com/rix1337/docker-ripper/blob/master/root/ripper/ripper.sh))
+_Ripper will place a bash-file ([ripper.sh](https://github.com/edgd1er/docker-ripper/blob/master/root/ripper/ripper.sh))
 automatically at /config that is responsible for detecting and ripping disks. You are completely free to modify it on
 your local docker host. No modifications to this main image are required for minor edits to that file._
 
@@ -133,26 +132,19 @@ _You need to edit /config/abcde.conf_
 ### I want another output format that requires another piece of software!
 
 _You need to fork this image and build it yourself on docker hub. A good starting point is
-the [Dockerfile](https://github.com/rix1337/docker-ripper/blob/master/Dockerfile#L30) that includes setup instructions
+the [Dockerfile](https://github.com/edgd1er/docker-ripper/blob/master/Dockerfile#L30) that includes setup instructions
 for the used ripping software. If your solution works better than the current one, I will happily review your pull
 request._
 
 ### MakeMKV needs an update!
 
 _Make sure you have pulled the latest image. The image should be updated automatically as soon as MakeMKV is updated.
-This has not worked reliably in the past. Just [open a new issue](https://github.com/rix1337/docker-ripper/issues/new)
+This has not worked reliably in the past. Just [open a new issue](https://github.com/edgd1er/docker-ripper/issues/new)
 and I will trigger the build._
 
 ### Am I allowed to use this in a commercial setting?
 
-_Yes, see [LICENSE.md](https://github.com/rix1337/docker-ripper/blob/master/LICENSE.md)._
-**If this project is helpful to your organization please sponsor me
-on [Github Sponsors](https://github.com/sponsors/rix1337)!**
-
-### Do you offer support?
-
-_If plausible [open a new issue](https://github.com/rix1337/docker-ripper/issues/new). I am not responsible if anything
-breaks. For more information see [LICENSE.md](https://github.com/rix1337/docker-ripper/blob/master/LICENSE.md)_
+_Yes, see [LICENSE.md](https://github.com/edgd1er/docker-ripper/blob/master/LICENSE.md)._
 
 # Credits
 
