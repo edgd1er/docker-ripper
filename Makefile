@@ -17,3 +17,6 @@ lint: ## stop all containers
 build: ## build image
 	@echo "build image ..."
 	docker-compose build
+
+run:
+	docker-compose up
