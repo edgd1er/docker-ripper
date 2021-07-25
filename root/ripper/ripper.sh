@@ -30,7 +30,7 @@ BAD_THRESHOLD=5
 BAD_RESPONSE=0
 
 changePerms() {
-  newPerm=${UID}":"${GID}
+  newPerm=${NUID:-$UID}":"${NGID:-$GROUPS}
   if [[ ":" == "${newPerm}" ]]; then
     newPerm=nobody:users
   fi

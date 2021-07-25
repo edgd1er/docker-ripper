@@ -1,16 +1,25 @@
-# docker-ripper
+[![build docker-ripper multi-arch images](https://github.com/edgd1er/docker-ripper/actions/workflows/buildPush.yml/badge.svg)](https://github.com/edgd1er/docker-ripper/actions/workflows/buildPush.yml)
+
+[![lint docker-ripper dockerfile](https://github.com/edgd1er/docker-ripper/actions/workflows/lint.yml/badge.svg)](https://github.com/edgd1er/docker-ripper/actions/workflows/lint.yml)
+
+![Docker Size](https://badgen.net/docker/size/edgd1er/docker-ripper?icon=docker&label=Size)
+![Docker Pulls](https://badgen.net/docker/pulls/edgd1er/docker-ripper?icon=docker&label=Pulls)
+![Docker Stars](https://badgen.net/docker/stars/edgd1er/docker-ripper?icon=docker&label=Stars)
+![ImageLayers](https://badgen.net/docker/layers/edgd1er/docker-ripper?icon=docker&label=Layers)
+
+current makemkvcon's version: 1.16.4
 
 Forked from https://github.com/rix1337/docker-ripper
 
 ## Differences
 * Replace phusion-baseimage with debian-stretch
-* use multi stage to build makemkv: 1.16.4 (not depending on ppa updates)
+* use multi stage to build makemkv (not depending on ppa updates)
 * Use supervisor to run apps.
 * User and group ID are settable.
 * Show latest makemkv version.  
 * added options:
     * NUID/NGID: set nobody UID/GID (chown output dir)
-    * Define timezone with TZ
+    * TZ: Define timezone
 
 This container will detect optical disks by their type and rip them automatically.
 
@@ -27,9 +36,7 @@ BluRay | MKV | MakeMKV
 
 #### (1) Create the required directories, for example, in /home/yourusername. Do _not_ use sudo mkdir to achieve this.
 
-```
-mkdir config rips
-```
+`mkdir -p rips config`
 
 #### (2) Find out the name(s) of the optical drive
 
@@ -48,7 +55,7 @@ or
 In the command below, the paths refer to the output from your lsscsi-g command, along with your config and rips
 directories. If you created /home/yourusername/config and /home/yourusername/rips then those are your paths.
 
-```
+```dockerfile
 docker run -d \
   --name="Ripper" \
   --privileged
@@ -57,7 +64,36 @@ docker run -d \
   --device=/dev/sr0:/dev/sr0 \
   --device=/dev/sg0:/dev/sg0 \
   edgd1er/docker-ripper
-  ```
+```
+
+```yaml
+version: '3.8'
+services:
+  docker-ripper:
+    image: edgd1er/docker-ripper
+    container_name: ripper
+    ports:
+      - "9191:9090"
+    privileged: true
+    environment:
+      TZ: "Europe/Paris"
+      LOGIN: "toto"
+      PASS: "toto"
+      PREFIX: ''
+      DEBUG: 'False'
+    volumes:
+      - './config/:/config:rw'
+      - './rips/:/out:rw'
+    devices:
+      - '/dev/null:/dev/sr0'
+```
+
+Other environment variables
+
+NUID: new user id to set ownership of output files (default 99)
+NGID: new group id to set ownership of output files (default 100)
+TZ: optional, define TimeZone.
+MVN_KEY: optional, set purchased key. if not defined the latest beta key is fetched. Delete settings.conf to force 
 
 #### Using the web UI for logs
 
@@ -79,17 +115,17 @@ launch. Without a purchased license key Ripper may stop running at any time.
 
 #### If you have purchased a license key to MakeMKV/Ripper:
 
-1) after starting the container, go into the config directory you created, edit the file
-   called `enter-your-key-then-rename-to.settings.conf`, and add your key between the
-   quotes `app_Key = "`**[ENTER KEY HERE]**`"` then save and rename the file to settings.conf
+1) define the environment variable MVN_KEY with your key.
+in the commandline to start the container
+```commandline
+-e MVN_KEY="T-oDpQwQnTwMvNEFulk0bRciM7SWtVkY9ODCy8g8q1oHjUwZWkX0bkAPNZmCaKVNoWZv"
+```
+or in the docker-compose.yml file.
 
-![makemkv license](screenshots/makemkvkey.png)
-
-2) Remove the remaining file `enter-your-key-then-rename-to.settings.conf`
-   ![sudo rm enter your key](screenshots/sudormenteryourkey.png)
-
-3) At this point your config directory should look like this:  
-   ![config directory](screenshots/configdirectory.png)
+2) After the container is started, your settings.conf in config directory should look like this:  
+```
+app_Key = "T-oDpQwQnTwMvNEFulk0bRciM7SWtVkY9ODCy8g8q1oHjUwZWkX0bkAPNZmCaKVNoWZv"
+```
 
 # Docker compose
 
@@ -152,11 +188,6 @@ _Yes, see [LICENSE.md](https://github.com/edgd1er/docker-ripper/blob/master/LICE
 
 # Credits
 
-- [Idea based on Discbox by kingeek](http://kinggeek.co.uk/projects/item/61-discbox-linux-bash-script-to-automatically-rip-cds-dvds-and-blue-ray-with-multiple-optical-drives-and-no-user-intervention)
-
-  Kingeek uses proper tools (like udev) to detect disk types. This is impossible in docker right now. Hence, most of the
-  work is done by MakeMKV (see above).
-
-- [MakeMKV Setup by tobbenb](https://github.com/tobbenb/docker-containers)
+- [MakeMKV build by makemkv](https://forum.makemkv.com/forum/viewtopic.php?f=3&t=224)
 
 - [MakeMKV key/version fetcher by metalight](http://blog.metalight.dk/2016/03/makemkv-wrapper-with-auto-updater.html)
