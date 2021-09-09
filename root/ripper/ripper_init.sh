@@ -9,6 +9,11 @@ if [[ ! -f /config/ripper.sh ]]; then
   cp /ripper/ripper.sh /config/ripper.sh
 fi
 
+#Copy conf if not present.
+if [[ ! -f /config/abcde.conf ]]; then
+  cp /ripper/abcde.conf /config/abcde.conf
+fi
+
 TZ=${TZ:-'America/Chicago'}
 NUID=${NUID:-99}
 NGID=${NGID:-100}
