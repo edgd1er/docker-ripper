@@ -36,8 +36,9 @@ RUN if [ -n ${aptCacher} ]; then printf "Acquire::http::Proxy \"http://%s:3142\"
     && cd ffmpeg \
     && ./configure --prefix=/tmp/ffmpeg --enable-static --disable-shared --enable-pic --disable-yasm --enable-libfdk-aac \
     && make && make install && make clean
-    # get & check makemkv-{oss,bin}
+# hadolint ignore=DL3003,SC2086
 RUN echo "downloading and checking makemkv-bin-${MKVVERSION}" \
+    # get & check makemkv-{oss,bin}
     && wget -nv -O /tmp/sha.txt "http://www.makemkv.com/download/makemkv-sha-${MKVVERSION}.txt" \
     && GNUPGHOME="$(mktemp -d)" \
     && gpg --batch --keyserver keyserver.ubuntu.com --recv-keys 2ECF23305F1FC0B32001673394E3083A18042697 \
