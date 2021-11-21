@@ -22,32 +22,44 @@ RUN if [ -n ${aptCacher} ]; then printf "Acquire::http::Proxy \"http://%s:3142\"
     #Massive apt install of jeedom requirements to optimise downloads
     && buildDeps='build-essential pkg-config libc6-dev libssl-dev libexpat1-dev libavcodec-dev libgl1-mesa-dev \
     qtbase5-dev zlib1g-dev'  \
-    && apt-get update && apt-get install -y --no-install-recommends git wget ca-certificates apt-transport-https \
+    && apt-get update && apt-get install -y --no-install-recommends git wget gnupg ca-certificates apt-transport-https \
     software-properties-common libavcodec-extra $buildDeps \
-    # build fdk
+    # build fdk \
+    && echo "Building fdk" \
     && wget -nv http://downloads.sourceforge.net/opencore-amr/fdk-aac-$FDKVERSION.tar.gz \
     && tar xvf fdk-aac-$FDKVERSION.tar.gz \
     && cd fdk-aac-$FDKVERSION && ./configure --prefix=/usr --disable-static \
     && make && make install \
-    # build ffmpeg
-    && git clone git://source.ffmpeg.org/ffmpeg.git ffmpeg \
+    # build ffmpeg \
+    && echo "Building ffmpeg" \
+    && git clone --depth 1 git://source.ffmpeg.org/ffmpeg.git ffmpeg \
     && cd ffmpeg \
     && ./configure --prefix=/tmp/ffmpeg --enable-static --disable-shared --enable-pic --disable-yasm --enable-libfdk-aac \
-    && make && make install && make clean \
+    && make && make install && make clean
+    # get & check makemkv-{oss,bin}
+RUN echo "downloading and checking makemkv-bin-${MKVVERSION}" \
+    && wget -nv -O /tmp/sha.txt "http://www.makemkv.com/download/makemkv-sha-${MKVVERSION}.txt" \
+    && GNUPGHOME="$(mktemp -d)" \
+    && gpg --batch --keyserver keyserver.ubuntu.com --recv-keys 2ECF23305F1FC0B32001673394E3083A18042697 \
+    && gpg --batch --decrypt --output /tmp/shadec.txt /tmp/sha.txt \
+    && gpgconf --kill all \
+    && wget -nv -P /tmp/ "http://www.makemkv.com/download/makemkv-bin-${MKVVERSION}.tar.gz" \
+    && wget -nv -P /tmp/ "http://www.makemkv.com/download/makemkv-oss-${MKVVERSION}.tar.gz" \
+    && shaosstxt="$(grep -oP ".*(?=  makemkv-oss-${MKVVERSION})" /tmp/sha.txt)"  && [ -n ${shaosstxt} ] \
+    && shabintxt="$(grep -oP ".*(?=  makemkv-bin-${MKVVERSION})" /tmp/sha.txt)" && [ -n ${shabintxt} ] \
+    && cd /tmp/ && grep -P "makemkv-(oss|bin)-${MKVVERSION}" /tmp/sha.txt | sha256sum -c - \
     # build makemkv-oss
-    && wget -nv http://www.makemkv.com/download/makemkv-oss-$MKVVERSION.tar.gz -P /tmp/ \
-    && mkdir -p /tmp/makemkv-oss-$MKVVERSION /tmp/makemkv-bin-$MKVVERSION \
-    && echo "Building makemkv-oss-$MKVVERSION.tar.gz" \
-    && tar xvf /tmp/makemkv-oss-$MKVVERSION.tar.gz -C /tmp/ \
-    && cd /tmp/makemkv-oss-$MKVVERSION && ls -al && chmod +x ./configure && ./configure PREFIX="${PREFIX}" \
+    && echo "Building makemkv-oss-${MKVVERSION}" \
+    && mkdir -p /tmp/makemkv-oss-${MKVVERSION} /tmp/makemkv-bin-${MKVVERSION} \
+    && echo "Building makemkv-oss-${MKVVERSION}.tar.gz" \
+    && tar xvf /tmp/makemkv-oss-${MKVVERSION}.tar.gz -C /tmp/ \
+    && cd /tmp/makemkv-oss-${MKVVERSION} && ls -al && chmod +x ./configure && ./configure PREFIX="${PREFIX}" \
     && make PREFIX="${PREFIX}" && make install PREFIX="${PREFIX}" && make clean \
-    && rm /tmp/makemkv-oss-$MKVVERSION.tar.gz \
+    && rm /tmp/makemkv-oss-${MKVVERSION}.tar.gz \
     # build makemkv-bin \
-    && TARFILE=makemkv-bin-$MKVVERSION.tar.gz && echo "Building $TARFILE" \
-    && wget -nv http://www.makemkv.com/download/$TARFILE -P /tmp/ \
-    && tar xvf /tmp/$TARFILE -C /tmp/ \
-    && cd /tmp/${TARFILE%%.tar.gz} && pwd && mkdir tmp && touch tmp/eula_accepted && make && make install \
-    && make clean && rm /tmp/makemkv-bin-$MKVVERSION.tar.gz
+    && tar xvf /tmp/makemkv-bin-${MKVVERSION}.tar.gz -C /tmp/ \
+    && cd /tmp/makemkv-bin-${MKVVERSION} && pwd && mkdir tmp && touch tmp/eula_accepted && make && make install \
+    && make clean && rm /tmp/makemkv-bin-${MKVVERSION}.tar.gz
 
 
 FROM debian:buster-slim
@@ -105,5 +117,5 @@ LABEL maintainer="edgd1er <edgd1er@htomail.com>" \
       org.label-schema.url="https://hub.docker.com/r/edgd1er/docker-ripper" \
       org.label-schema.vcs-ref=$VCS_REF \
       org.label-schema.vcs-url="https://github.com/edgd1er/docker-ripper" \
-      org.label-schema.version=$MKVVERSION \
+      org.label-schema.version=${MKVVERSION} \
       org.label-schema.schema-version="1.0"

@@ -5,8 +5,8 @@ SHELL:=bash
 
 # Enable BuildKit for Docker build
 export DOCKER_BUILDKIT:=1
-export COMPOSE_DOCKER_CLI_BUILD:=0
-
+export COMPOSE_DOCKER_CLI_BUILD:=1
+export BUILDKIT_PROGRESS:=plain
 
 # https://marmelab.com/blog/2016/02/29/auto-documented-makefile.html
 help:
@@ -18,6 +18,7 @@ lint: ## stop all containers
 
 build: ## build image
 	@echo "build image ..."
+	docker buildx use default
 	docker-compose build
 
 run:
