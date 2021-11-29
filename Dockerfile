@@ -1,4 +1,4 @@
-FROM debian:buster AS builder
+FROM debian:bullseye AS builder
 
 ARG MKVVERSION=1.16.5
 ARG FDKVERSION=2.0.2
@@ -63,7 +63,7 @@ RUN echo "downloading and checking makemkv-bin-${MKVVERSION}" \
     && make clean && rm /tmp/makemkv-bin-${MKVVERSION}.tar.gz
 
 
-FROM debian:buster-slim
+FROM debian:bullseye-slim
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # oss
