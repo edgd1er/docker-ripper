@@ -19,7 +19,7 @@ lint: ## stop all containers
 build: ## build image
 	@echo "build image ..."
 	docker buildx use default
-	docker-compose build
+	docker compose build
 
 run:
 	docker-compose up

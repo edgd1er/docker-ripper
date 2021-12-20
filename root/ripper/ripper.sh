@@ -157,7 +157,7 @@ while true; do
       else
         # ISO
         echo "$(date "+%d.%m.%Y %T") : Data-Disk detected: Saving ISO"
-        ddrescue $DRIVE $ISOPATH >>$LOGFILE 2>&1
+        ddrescue $DRIVE "$ISOPATH" >>$LOGFILE 2>&1
       fi
       echo "$(date "+%d.%m.%Y %T") : Done! Ejecting Disk"
       eject $DRIVE >>$LOGFILE 2>&1
