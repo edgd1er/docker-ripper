@@ -30,6 +30,43 @@ from flask import Flask, request, redirect, send_from_directory, render_template
 from waitress import serve
 
 
+# Credits: https://stackoverflow.com/a/13790289
+def tail(f, lines=1, _buffer=4098):
+    """Tail a file and get X lines from the end"""
+    # place holder for the lines found
+    lines_found = []
+
+    # block counter will be multiplied by buffer
+    # to get the block size from the end
+    block_counter = -1
+
+    # loop until we find X lines
+    while len(lines_found) < lines:
+        try:
+            f.seek(block_counter * _buffer, os.SEEK_END)
+        except IOError:  # either file is too small, or too many lines requested
+            f.seek(0)
+            lines_found = f.readlines()
+            break
+
+        lines_found = f.readlines()
+
+        # decrement the block counter to get the
+        # next X bytes
+        block_counter -= 1
+
+    return lines_found[-lines:]
+
+
+# Credits: https://stackoverflow.com/a/1094933
+def sizeof_fmt(num, suffix="B"):
+    for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
+        if abs(num) < 1024.0:
+            return f"{num:3.1f}{unit}{suffix}"
+        num /= 1024.0
+    return f"{num:.1f}Yi{suffix}"
+
+
 def decode_base64(value):
     value = value.replace("-", "/")
     return base64.b64decode(value).decode()
@@ -40,23 +77,29 @@ def app_container():
 
     base_dir = '.'
     debug = False
+    debug = os.getenv('DEBUG', False)
 
     app = Flask(__name__, template_folder=os.path.join(base_dir, 'web'))
     app.config["TEMPLATES_AUTO_RELOAD"] = True
 
-    port = arguments['--port'] if arguments['--port'] else 9090
+    if arguments['--port']:
+        port = arguments['--port']
+    else:
+        port = 9090
 
-    prefix = ""
     if arguments['--prefix']:
         prefix = arguments['--prefix']
         if not prefix[0] == '/':
             prefix = '/' + prefix
+    else:
+        prefix = ""
 
-    debug = os.getenv('DEBUG', False)
+    if arguments['--log']:
+        log_file = arguments['--log']
+    else:
+        log_file = "/config/Ripper.log"
 
-    log_file = arguments['--log'] if arguments['--log'] else "/config/Ripper.log"
-
-    def check_auth(username='user', password='pass'):
+    def check_auth(username, password):
         if debug:
             print(f'user: {username} == {arguments["--user"]}, pass: {password} == {arguments["--pass"]}')
         return username == arguments['--user'] and password == arguments['--pass']
@@ -106,14 +149,16 @@ def app_container():
         if request.method == 'GET':
             try:
                 log = []
+                filesize = 0
                 if os.path.isfile(log_file):
-                    logfile = open(log_file)
-                    for line in reversed(logfile.readlines()):
-                        if line and line != "\n":
-                            log.append(line)
+                    filesize = os.path.getsize(log_file)
+
+                    log = tail(open(log_file, "r"), lines=100)[::-1]
                 return jsonify(
                     {
                         "log": log,
+                        "filesize": sizeof_fmt(filesize),
+                        "large_file": filesize > 1000000
                     }
                 )
             except OSError:
@@ -127,26 +172,7 @@ def app_container():
         else:
             return "Failed", 405
 
-    @app.route(prefix + "/api/log_entry/<b64_entry>", methods=['DELETE'])
-    @requires_auth
-    def get_delete_log_entry(b64_entry):
-        if request.method != 'DELETE':
-            return "Failed", 405
-        try:
-            entry = decode_base64(b64_entry)
-            log = []
-            if os.path.isfile(log_file):
-                logfile = open(log_file)
-                for line in reversed(logfile.readlines()):
-                    if line and line != "\n" and entry not in line:
-                        log.append(line)
-                    log = "".join(reversed(log))
-                with open(log_file, 'w') as file:
-                    file.write(log)
-            return "Success", 200
-        except OSError:
-            return "Failed", 400
-
+    print("Ripper web log available on Port "+ port)
     serve(app, host='0.0.0.0', port=port, threads=10, _quiet=True)
 
 
