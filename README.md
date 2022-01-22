@@ -7,7 +7,7 @@
 ![Docker Stars](https://badgen.net/docker/stars/edgd1er/docker-ripper?icon=docker&label=Stars)
 ![ImageLayers](https://badgen.net/docker/layers/edgd1er/docker-ripper?icon=docker&label=Layers)
 
-current makemkvcon's version: 1.16.4
+current makemkvcon's version: 1.16.5
 
 Forked from https://github.com/rix1337/docker-ripper
 
@@ -16,10 +16,12 @@ Forked from https://github.com/rix1337/docker-ripper
 * use multi stage to build makemkv (not depending on ppa updates)
 * Use supervisor to run apps.
 * User and group ID are settable.
-* Show latest makemkv version.  
+* Show latest makemkv version.
+* send notifications (email, pushover, pushbullet) upon completion
 * added options:
-    * NUID/NGID: set nobody UID/GID (chown output dir)
-    * TZ: Define timezone
+   * NUID/NGID: set nobody UID/GID (chown output dir)
+   * TZ: Define timezone
+  
 
 This container will detect optical disks by their type and rip them automatically.
 
@@ -81,6 +83,18 @@ services:
       PASS: "toto"
       PREFIX: ''
       DEBUG: 'False'
+      NOTIFICATION_ON: "y"
+      EMAIL_SENDER: 'YOUR_EMAIL'
+      EMAIL_RECIPIENTS: 'DEST_EMAIL'
+      EMAIL_PASSWORD: 'YOUR_PASSWORD'
+      EMAIL_SERVER: 'smtp.gmail.com'
+      EMAIL_SERVER_PORT: '587'
+      EMAIL_DEBUG_LEVEL: '0'
+      # Push notification parameters (Pushover)
+      PUSHOVER_APP_TOKEN: 'YOUR_APP_TOKEN'
+      USER_KEY: 'YOUR_USER_KEY'
+      # Push notification parameters (Pushbullet)
+      PUSHBULLET_APP_TOKEN: 'YOUR_APP_TOKEN'
     volumes:
       - './config/:/config:rw'
       - './rips/:/out:rw'
@@ -94,6 +108,14 @@ NUID: new user id to set ownership of output files (default 99)
 NGID: new group id to set ownership of output files (default 100)
 TZ: optional, define TimeZone.
 MVN_KEY: optional, set purchased key. if not defined the latest beta key is fetched. Delete settings.conf to force 
+
+### Notifications
+
+three types of notifications are available: email, pushover, pushbullet.
+If EMAIL_SENDER is empty, no email is sent.
+If PUSHOVER_APP_TOKEN, no pushover is sent.
+If EMAIL_RECIPIENTS is empty, no pushbullet is sent.
+A global toggle `SEND_NOTIFICATION` is set (y/n) to enable or disable notifications.
 
 #### Using the web UI for logs
 

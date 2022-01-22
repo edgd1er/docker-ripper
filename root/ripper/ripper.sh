@@ -4,12 +4,12 @@ set -euo pipefail
 
 RIPPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 LOGFILE="/config/Ripper.log"
-
 DEBUG=${DEBUG:-"False"}
-
 if [ 'true' == ${DEBUG,,} ]; then
   set -xo verbose
 fi
+
+SEND_NOTIFICATION=${SEND_NOTIFICATION:-"n"}
 
 # Startup Info
 echo "$(date "+%d.%m.%Y %T") : Starting Ripper. Optical Discs will be detected and ripped within 60 seconds."
@@ -28,6 +28,16 @@ DRIVE="/dev/sr0"
 
 BAD_THRESHOLD=5
 BAD_RESPONSE=0
+
+notify() {
+  if [[ "y" == "${SEND_NOTIFICATION,,}" ]]; then
+    SUBJECT="[DOCKER-RIPPER] rip compledted"
+    BODY= "rip completed. See logs for more details."
+    [[ -n ${EMAIL_SENDER} ]] && notifications email --subject ${SUBJECT} --body ${BODY} --recipients ${EMAIL_RECIPIENTS}
+    [[ -n ${PUSHOVER_APP_TOKEN} ]] && notifications pushover --subject ${SUBJECT} --body ${BODY}
+    [[ -n ${PUSHBULLET_APP_TOKEN} ]] && notifications pushbullet --subject ${SUBJECT} --body ${BODY}
+  fi
+}
 
 changePerms() {
   newPerm=${NUID:-$UID}":"${NGID:-$GROUPS}
@@ -61,7 +71,7 @@ while true; do
   EXPECTED="${EMPTY}${OPEN}${LOADING}${BD1}${BD2}${DVD}${CD1}${CD2}"
   if [ "x$EXPECTED" == 'x' ]; then
     echo "$(date "+%d.%m.%Y %T") : Unexpected makemkvcon output: $INFO"
-    (( BAD_RESPONSE++ ))
+    ((BAD_RESPONSE++))
   else
     BAD_RESPONSE=0
   fi
@@ -103,6 +113,7 @@ while true; do
     fi
     echo "$(date "+%d.%m.%Y %T") : Done! Ejecting Disk"
     eject $DRIVE >>$LOGFILE 2>&1
+    notify
     # permissions
     changePerms "$STORAGE_BD"
   fi
@@ -127,6 +138,7 @@ while true; do
     fi
     echo "$(date "+%d.%m.%Y %T") : Done! Ejecting Disk"
     eject $DRIVE >>$LOGFILE 2>&1
+    notify
     # permissions
     changePerms "$STORAGE_DVD"
   fi
@@ -144,6 +156,7 @@ while true; do
       fi
       echo "$(date "+%d.%m.%Y %T") : Done! Ejecting Disk"
       eject $DRIVE >>$LOGFILE 2>&1
+      notify
       # permissions
       changePerms "$STORAGE_CD"
     else
@@ -161,6 +174,7 @@ while true; do
       fi
       echo "$(date "+%d.%m.%Y %T") : Done! Ejecting Disk"
       eject $DRIVE >>$LOGFILE 2>&1
+      notify
       # permissions
       changePerms "$STORAGE_DATA"
     fi

@@ -83,6 +83,7 @@ COPY --from=builder /usr/bin/mmccextr /usr/bin/mmccextr
 COPY --from=builder /usr/share/MakeMKV /usr/share/MakeMKV
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
+WORKDIR /root
 # Install software
 # hadolint ignore=DL3008,DL3013,DL3042,SC2086
 RUN export DEBIAN_FRONTEND=noninteractive && apt-get update && apt-get upgrade -y \
@@ -92,6 +93,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && apt-get update && apt-get upgrade -
     && apt-get -y install --no-install-recommends python3 python3-pip python3-setuptools \
     python-pip-whl python3-distutils python3-lib2to3 build-essential python3-dev python3-wheel \
     && pip3 install wheel docopt flask waitress setuptools  \
+    # add notification eml/pushover/pushbullet \
+    && git clone https://github.com/ltpitt/python-simple-notifications.git \
     && apt-get -y autoremove \
     && ln -s -f makemkvcon sdftool \
     # Configure user nobody to match unRAID's settings
@@ -120,3 +123,13 @@ LABEL maintainer="edgd1er <edgd1er@htomail.com>" \
       org.label-schema.vcs-url="https://github.com/edgd1er/docker-ripper" \
       org.label-schema.version=${MKVVERSION} \
       org.label-schema.schema-version="1.0"
+
+ENV NOTIFICATION_ON="n" \
+    EMAIL_SENDER='' \
+    EMAIL_PASSWORD='' \
+    EMAIL_SERVER='' \
+    EMAIL_SERVER_PORT='' \
+    EMAIL_DEBUG_LEVEL='' \
+    PUSHOVER_APP_TOKEN='' \
+    USER_KEY='' \
+    PUSHBULLET_APP_TOKEN=''
