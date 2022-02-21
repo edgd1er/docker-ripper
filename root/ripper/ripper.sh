@@ -29,9 +29,24 @@ DRIVE="/dev/sr0"
 BAD_THRESHOLD=5
 BAD_RESPONSE=0
 
+ejectDrive() {
+  if eject -v $DRIVE | grep 'whole-disk' >>/dev/null; then
+    echo "First attempt at Ejecting Disk Succeeded"
+    exit 1
+  else
+    echo "First Attempt At Ejecting Disk Failed. Attempting Alternative Method." >>$LOGFILE 2>&1
+    echo "$(date "+%d.%m.%Y %T") : First Attempt At Ejecting Disk Failed. Trying Alternative Method."
+    sleep 2
+    sdparm --command=unlock $DRIVE
+    sleep 1
+    sdparm --command=eject $DRIVE
+    exit 1
+  fi
+}
+
 notify() {
   if [[ "y" == "${SEND_NOTIFICATION,,}" ]]; then
-    SUBJECT="[DOCKER-RIPPER] rip compledted"
+    SUBJECT="[DOCKER-RIPPER] rip completed"
     BODY= "rip completed. See logs for more details."
     [[ -n ${EMAIL_SENDER} ]] && notifications email --subject ${SUBJECT} --body ${BODY} --recipients ${EMAIL_RECIPIENTS}
     [[ -n ${PUSHOVER_APP_TOKEN} ]] && notifications pushover --subject ${SUBJECT} --body ${BODY}
@@ -79,8 +94,8 @@ while true; do
     echo "$(date "+%d.%m.%Y %T") : Too many errors, ejecting disk and aborting"
     # Run makemkvcon once more with full output, to potentially aid in debugging
     makemkvcon -r --cache=1 info disc:9999
-    eject $DRIVE >>$LOGFILE 2>&1
-    exit 1
+    notify
+    ejectDrive
   fi
 
   # if [ $EMPTY = 'DRV:0,0,999,0,"' ]; then
@@ -112,8 +127,8 @@ while true; do
       mv -v "$BDPATH" "$BDFINISH"
     fi
     echo "$(date "+%d.%m.%Y %T") : Done! Ejecting Disk"
-    eject $DRIVE >>$LOGFILE 2>&1
     notify
+    ejectDrive
     # permissions
     changePerms "$STORAGE_BD"
   fi
@@ -137,8 +152,8 @@ while true; do
       mv -v "$DVDPATH" "$DVDFINISH"
     fi
     echo "$(date "+%d.%m.%Y %T") : Done! Ejecting Disk"
-    eject $DRIVE >>$LOGFILE 2>&1
     notify
+    ejectDrive
     # permissions
     changePerms "$STORAGE_DVD"
   fi
@@ -155,8 +170,8 @@ while true; do
         /usr/bin/abcde -d "$DRIVE" -c /config/abcde.conf -N -x -l >>$LOGFILE 2>&1
       fi
       echo "$(date "+%d.%m.%Y %T") : Done! Ejecting Disk"
-      eject $DRIVE >>$LOGFILE 2>&1
       notify
+      ejectDrive
       # permissions
       changePerms "$STORAGE_CD"
     else
@@ -173,8 +188,8 @@ while true; do
         ddrescue $DRIVE "$ISOPATH" >>$LOGFILE 2>&1
       fi
       echo "$(date "+%d.%m.%Y %T") : Done! Ejecting Disk"
-      eject $DRIVE >>$LOGFILE 2>&1
       notify
+      ejectDrive
       # permissions
       changePerms "$STORAGE_DATA"
     fi

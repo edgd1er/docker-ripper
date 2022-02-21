@@ -90,8 +90,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && apt-get update && apt-get upgrade -
     && apt-get -y install --no-install-recommends supervisor wget eject git curl gddrescue abcde eyed3 flac lame \
     mkcue speex vorbis-tools vorbisgain id3 id3v2 libavcodec-extra \
     # Install python for web ui
-    && apt-get -y install --no-install-recommends python3 python3-pip python3-setuptools \
-    python-pip-whl python3-distutils python3-lib2to3 build-essential python3-dev python3-wheel \
+    && apt-get -y install --no-install-recommends python3 python3-pip python3-setuptools build-essential \
+    python-pip-whl python3-distutils python3-lib2to3  python3-dev python3-wheel sdparm \
     && pip3 install wheel docopt flask waitress setuptools  \
     # add notification eml/pushover/pushbullet \
     && git clone https://github.com/ltpitt/python-simple-notifications.git \
