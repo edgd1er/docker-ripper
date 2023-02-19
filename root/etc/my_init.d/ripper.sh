@@ -21,7 +21,7 @@ mkdir -p /root/.MakeMKV
 if [[ -f  /config/settings.conf ]]; then
  echo "Found settings.conf. Replacing beta key file."
  cp -f  /config/settings.conf /root/.MakeMKV/
-elif [ -n $KEY ]; then
+elif [ -n "${KEY}" ]; then
  echo "Using MakeMKV beta key: $KEY"
  echo app_Key = "\"$KEY"\" > /root/.MakeMKV/settings.conf
 fi

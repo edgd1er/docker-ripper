@@ -1,9 +1,9 @@
-FROM debian:bullseye-slim AS builder
+FROM debian:bookworm-slim AS builder
 
-ARG MKVVERSION=1.16.7
 ARG FDKVERSION=2.0.2
 ARG aptCacher
 ARG PREFIX=/usr/local
+ARG MKVVERSION=1.17.4
 # Set correct environment variables
 ENV HOME /root
 ENV DEBIAN_FRONTEND noninteractive
@@ -36,13 +36,17 @@ RUN if [ -n ${aptCacher} ]; then printf "Acquire::http::Proxy \"http://%s:3142\"
     && cd ffmpeg \
     && ./configure --prefix=/tmp/ffmpeg --enable-static --disable-shared --enable-pic --disable-yasm --enable-libfdk-aac \
     && make && make install && make clean
+ \
 # hadolint ignore=DL3003,SC2086
 RUN echo "downloading and checking makemkv-bin-${MKVVERSION}" \
     # get & check makemkv-{oss,bin}
     && wget -nv -O /tmp/sha.txt "http://www.makemkv.com/download/makemkv-sha-${MKVVERSION}.txt" \
+    && cat /tmp/sha.txt \
     && GNUPGHOME="$(mktemp -d)" \
-    && gpg --batch --keyserver keyserver.ubuntu.com --recv-keys 2ECF23305F1FC0B32001673394E3083A18042697 \
-    && gpg --batch --decrypt --output /tmp/shadec.txt /tmp/sha.txt \
+    && mkdir -p /root/.gnupg/ && chmod 700 /root/.gnupg/ \
+    && echo "standard-resolver">/root/.gnupg/dirmngr.conf \
+    && gpg --batch --keyserver hkp://keyserver.ubuntu.com --recv-keys 2ECF23305F1FC0B32001673394E3083A18042697 \
+    && gpg --batch --decrypt --output /tmp/shadec.txt /tmp/sha.txt || true \
     && gpgconf --kill all \
     && wget -nv -P /tmp/ "http://www.makemkv.com/download/makemkv-bin-${MKVVERSION}.tar.gz" \
     && wget -nv -P /tmp/ "http://www.makemkv.com/download/makemkv-oss-${MKVVERSION}.tar.gz" \
@@ -63,7 +67,7 @@ RUN echo "downloading and checking makemkv-bin-${MKVVERSION}" \
     && make clean && rm /tmp/makemkv-bin-${MKVVERSION}.tar.gz
 
 
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # oss
@@ -86,16 +90,31 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 WORKDIR /root
 # Install software
 # hadolint ignore=DL3003,DL3008,DL3013,DL3042,SC2086
-RUN export DEBIAN_FRONTEND=noninteractive && apt-get update && apt-get upgrade -y \
+RUN export DEBIAN_FRONTEND=noninteractive \
+    && echo "deb http://deb.debian.org/debian bookworm-backports main contrib non-free-firmware" | tee -a /etc/apt/sources.list \
+    && echo "deb http://deb.debian.org/debian testing main contrib non-free-firmware" | tee -a /etc/apt/sources.list \
+    && echo "deb http://deb.debian.org/debian unstable main contrib non-free-firmware" | tee -a /etc/apt/sources.list \
+    && echo "Package: * \
+              Pin: release a=stable \
+              Pin-Priority: 700 \
+\
+              Package: *\
+              Pin: release a=testing \
+              Pin-Priority: 650 \
+\
+              Package: * \
+              Pin: release a=unstable \
+              Pin-Priority: 600" > /etc/apt/preferences \
+    && apt-get update && apt-get upgrade -y \
     && apt-get -y install --no-install-recommends supervisor wget eject git curl gddrescue abcde eyed3 flac lame \
-    mkcue speex vorbis-tools vorbisgain id3 id3v2 libavcodec-extra \
+    speex vorbis-tools vorbisgain id3 id3v2 libavcodec-extra build-essential sdparm \
+    && apt-get install -y --no-install-recommends  mkcue/unstable \
     # Install python for web ui
-    && apt-get -y install --no-install-recommends python3 python3-pip python3-setuptools build-essential \
-    python-pip-whl python3-distutils python3-lib2to3  python3-dev python3-wheel sdparm \
-    && pip3 install wheel docopt flask waitress setuptools  \
-    # add notification eml/pushover/pushbullet \
-    && git clone https://github.com/ltpitt/python-simple-notifications.git \
-    && cd /root/python-simple-notifications && pip3 install . 2>&1 \
+    && apt-get -y install --no-install-recommends python3 python3-pip python3-setuptools-whl python3-pip-whl  \
+    python3-distutils python3-lib2to3 python3-docopt python3-flask python3-waitress python3-setuptools
+    # add notification eml/pushover/pushbullet
+RUN git clone https://github.com/ltpitt/python-simple-notifications.git \
+    && cd /root/python-simple-notifications && pip3 install --break-system-packages . 2>&1 \
     && apt-get -y autoremove \
     && ln -s -f makemkvcon sdftool \
     # Configure user nobody to match unRAID's settings
