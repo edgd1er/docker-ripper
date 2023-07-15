@@ -25,5 +25,5 @@ run:
 	docker-compose up
 
 check:
-	@echo "makemkv version :"$((curl -s "http://www.makemkv.com/download/" | grep -Eom1 "MakeMKV [0-9].[0-9]+\.[0-9]+" | sed 's/MakeMKV //'))
-	@echo "libevent: "
+	@echo "local  makemkv version: "$$(grep -oP "(?<=current makemkvcon's version: )[0-9].[0-9]+\.[0-9]+" README.md | tr -d ' ')
+	@echo "remote makemkv version: "$$( curl -Ls 'http://www.makemkv.com/download/' | grep -oPm1 '(?<=MakeMKV )[0-9].[0-9]+\.[0-9]+' )
