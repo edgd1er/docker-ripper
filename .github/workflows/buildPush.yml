@@ -19,7 +19,7 @@ jobs:
       - name: checkout code
         uses: actions/checkout@v4
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
       - name: get mkv version
         run: |
           echo "MKVVERSION="$(grep -oP "(?<=current makemkvcon's version: )[0-9].[0-9]+\.[0-9]+" README.md | tr -d ' ') >> $GITHUB_ENV
