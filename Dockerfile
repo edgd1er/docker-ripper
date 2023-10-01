@@ -3,7 +3,7 @@ FROM debian:bookworm-slim AS builder
 ARG FDKVERSION=2.0.2
 ARG aptCacher
 ARG PREFIX=/usr/local
-ARG MKVVERSION=1.17.4
+ARG MKVVERSION=1.17.5
 # Set correct environment variables
 ENV HOME /root
 ENV DEBIAN_FRONTEND noninteractive
