@@ -18,3 +18,7 @@ venv
 # PyCharm
 .idea
 .eggs
+config/**
+rips/**
+/compose.yml
+/MKV_KEY

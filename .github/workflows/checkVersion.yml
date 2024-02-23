@@ -1,0 +1,20 @@
+name: check mkv version
+on:
+  schedule:
+    - cron: "0 7 1 * *"
+  workflow_dispatch:
+
+jobs:
+  check-mkv_version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v4
+      - name: get latest version
+        id: getlatestversion
+        run: |
+          localver=$(grep -oP "(?<=current makemkvcon's version: )[0-9].[0-9]+\.[0-9]+" README.md | tr -d ' ')
+          ver=$(curl -Ls "http://www.makemkv.com/download/" |grep -oPm1 '(?<=MakeMKV )[0-9].[0-9]+\.[0-9]+' | tr -d ' ')
+          echo "mkv build version: ${localver}, latest mkv version: ${ver}"
+          if [[ ${localver:-'1'} != ${ver:-'2'} ]]; then exit 1; fi
+

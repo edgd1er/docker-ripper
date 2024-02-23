@@ -1,7 +1,16 @@
 #!/bin/bash
 
+set -euo pipefail
+
+RIPPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 RIPPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOGFILE="/config/Ripper.log"
+DEBUG=${DEBUG:-"False"}
+if [ 'true' == ${DEBUG,,} ]; then
+  set -xo verbose
+fi
+
+SEND_NOTIFICATION=${SEND_NOTIFICATION:-"n"}
 
 # Startup Info
 printf "%s : Starting Ripper. Optical Discs will be detected and ripped within 60 seconds.\n" "$(date "+%d.%m.%Y %T")"
