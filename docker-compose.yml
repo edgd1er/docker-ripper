@@ -1,4 +1,3 @@
-version: '3.3'
 services:
     docker-ripper:
         container_name: Ripper
