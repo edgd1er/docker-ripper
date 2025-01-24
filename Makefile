@@ -8,7 +8,7 @@ export DOCKER_BUILDKIT:=1
 export COMPOSE_DOCKER_CLI_BUILD:=1
 export BUILDKIT_PROGRESS:=plain
 
-export aptCacher:=192.168.53.208
+export aptCacher:=192.168.53.212
 #export aptCacher:=
 progress:=auto #plain auto
 MKVVERSION:="1.17.8"
@@ -26,11 +26,11 @@ lint: ## stop all containers
 build: ## build image
 	@echo "build image ..."
 	docker buildx use default
-	docker buildx build --load --progress plain --build-arg FDKVERSION="${FDKVERSION}" --build-arg aptCacher="${aptcacher}" --build-arg PREFIX="/usr/local" --build-arg=MKVVERSION="${MKVVERSION}" --build-arg BUILD_DATE=$(date +%Y%m%d) --platform amd64 -f ./Dockerfile -t edgd1er/docker-ripper .
+	docker buildx build --load --progress plain --build-arg FDKVERSION="${FDKVERSION}" --build-arg aptCacher="${aptCacher}" --build-arg PREFIX="/usr/local" --build-arg=MKVVERSION="${MKVVERSION}" --build-arg BUILD_DATE=$(date +%Y%m%d) --platform amd64 -f ./Dockerfile -t edgd1er/docker-ripper .
 
 buildbin: ## build binaries
 	@echo "Build binaries"
-	docker buildx build --progress plain --build-arg FDKVERSION="${FDKVERSION}" --build-arg aptCacher="${aptcacher}" --build-arg PREFIX="/usr/local" --build-arg=MKVVERSION="${MKVVERSION}"  -f ./Dockerfile.build --output type=tar,dest=out.tar .
+	docker buildx build --progress plain --build-arg FDKVERSION="${FDKVERSION}" --build-arg aptCacher="${aptCacher}" --build-arg PREFIX="/tmp/ffmpeg" --build-arg=MKVVERSION="${MKVVERSION}"  -f ./Dockerfile.build --output type=tar,dest=out.tar .
 
 run:
 	docker-compose up

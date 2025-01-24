@@ -20,5 +20,5 @@ venv
 .eggs
 config/**
 rips/**
-/docker-compose.yml
+/compose.yml
 /MKV_KEY

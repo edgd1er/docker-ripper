@@ -3,7 +3,7 @@ FROM debian:bookworm-slim AS builder
 ARG aptCacher
 ARG MKVVERSION=1.17.8
 ARG FDKVERSION=2.0.3
-ARG PREFIX=/usr/local
+ARG PREFIX=/tmp/ffmpeg
 # Set correct environment variables
 ENV HOME=/root
 ENV DEBIAN_FRONTEND=noninteractive
@@ -15,14 +15,15 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 WORKDIR /root/
 # 3008 Pin versions in apt get install
 # hadolint ignore=DL3008,DL3003,SC2086,SC2046
-RUN if [ -n ${aptCacher} ]; then printf "Acquire::http::Proxy \"http://%s:3142\";" "${aptCacher}">/etc/apt/apt.conf.d/01proxy \
-    && printf "Acquire::https::Proxy \"http://%s:3142\";" "${aptCacher}">>/etc/apt/apt.conf.d/01proxy ; fi  \
+RUN if [ -n ${aptCacher} ]; then printf "Acquire::http::Proxy \"http://%s:3142\";" "${aptCacher}" | tee /etc/apt/apt.conf.d/01proxy \
+    && printf "Acquire::https::Proxy \"http://%s:3142\";" "${aptCacher}" | tee -a /etc/apt/apt.conf.d/01proxy ; fi  \
     #&& echo "Dir::Cache \"\";\nDir::Cache::archives \"\";" | tee /etc/apt/apt.conf.d/02nocache && \
     && printf "#/etc/dpkg/dpkg.cfg.d/01_nodoc\n\n# Delete locales\npath-exclude=/usr/share/locale/*\n\n# Delete man pages\npath-exclude=/usr/share/man/*\n\n# Delete docs\npath-exclude=/usr/share/doc/*\npath-include=/usr/share/doc/*/copyright" | tee /etc/dpkg/dpkg.cfg.d/03nodoc \
     #Massive apt install of jeedom requirements to optimise downloads
     && buildDeps='build-essential pkg-config libc6-dev libssl-dev libexpat1-dev libavcodec-dev libgl1-mesa-dev \
     qtbase5-dev zlib1g-dev'  \
-    && apt-get update && apt-get install -y --no-install-recommends git wget gnupg ca-certificates apt-transport-https \
+    && apt-get update && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends git wget gnupg ca-certificates apt-transport-https \
     software-properties-common libavcodec-extra $buildDeps \
     # build fdk \
     && echo "Building fdk" \
@@ -68,6 +69,7 @@ RUN echo "downloading and checking makemkv-bin-${MKVVERSION}" \
     && cd /tmp/makemkv-bin-${MKVVERSION} && pwd && mkdir tmp && touch tmp/eula_accepted && make && make install \
     && make clean && rm /tmp/makemkv-bin-${MKVVERSION}.tar.gz
 
+RUN find / -type f -name "*libavcodec.so*" -exec ls -al {} \;
 
 FROM debian:bookworm-slim
 
@@ -79,6 +81,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 COPY --from=builder /usr/lib/libdriveio.so.0 /usr/lib/libdriveio.so.0
 COPY --from=builder /usr/lib/libmakemkv.so.1 /usr/lib/libmakemkv.so.1
 COPY --from=builder /usr/lib/libmmbd.so.0 /usr/lib/libmmbd.so.0
+COPY --from=builder /usr/lib/libavcodec.so.59.37.100  /usr/lib/libmmbd.so.0
 COPY --from=builder /usr/bin/makemkv* /usr/bin/
 COPY --from=builder /usr/share/applications/makemkv.desktop /usr/share/applications/makemkv.desktop
 COPY --from=builder /usr/share/icons/hicolor/16x16/apps/makemkv.png /usr/share/icons/hicolor/16x16/apps/makemkv.png
@@ -96,24 +99,27 @@ WORKDIR /root
 # Install software
 # hadolint ignore=DL3003,DL3008,DL3013,DL3042,SC2086
 RUN export DEBIAN_FRONTEND=noninteractive \
+    && if [ -n ${aptCacher} ]; then printf "Acquire::http::Proxy \"http://%s:3142\";" "${aptCacher}" | tee /etc/apt/apt.conf.d/01proxy \
+    && printf "Acquire::https::Proxy \"http://%s:3142\";" "${aptCacher}" | tee -a /etc/apt/apt.conf.d/01proxy ; fi  \
     && echo "deb http://deb.debian.org/debian bookworm-backports main contrib non-free-firmware" | tee -a /etc/apt/sources.list \
     && echo "deb http://deb.debian.org/debian testing main contrib non-free-firmware" | tee -a /etc/apt/sources.list \
     && echo "deb http://deb.debian.org/debian unstable main contrib non-free-firmware" | tee -a /etc/apt/sources.list \
     && echo "Package: * \
-              Pin: release a=stable \
-              Pin-Priority: 700 \
+             Pin: release a=stable \
+             Pin-Priority: 900 \
 \
-              Package: *\
-              Pin: release a=testing \
-              Pin-Priority: 650 \
+             Package: *\
+             Pin: release a=testing \
+             Pin-Priority: 40 \
 \
-              Package: * \
-              Pin: release a=unstable \
-              Pin-Priority: 600" > /etc/apt/preferences \
-    && apt-get update && apt-get upgrade -y \
+             Package: * \
+             Pin: release a=unstable \
+             Pin-Priority: 50" > /etc/apt/preferences \
+    && apt-get update \
+    # && apt-get upgrade -y \
     && apt-get -y install --no-install-recommends supervisor wget eject git curl gddrescue abcde eyed3 flac lame \
     speex vorbis-tools vorbisgain id3 id3v2 libavcodec-extra build-essential sdparm \
-    && apt-get install -y --no-install-recommends  mkcue/unstable \
+    && apt-get install -y --no-install-recommends mkcue/testing \
     # Install python for web ui
     && apt-get -y install --no-install-recommends python3 python3-pip python3-setuptools-whl python3-pip-whl \
     python3-lib2to3 \
@@ -130,9 +136,14 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && chown -R nobody:users /home \
     # Clean up temp files
     && echo "Purge the dependencies"  \
+    && [[ -f /etc/apt/apt.conf.d/01proxy ]] && rm -Rf /etc/apt/apt.conf.d/01proxy || true \
     && apt-get purge -y --auto-remove $buildDeps \
     && echo "Purge the apt cache" \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+RUN find / -type f -name "*libavcodec.so*" -exec ls -al {} \;
+#RUN ls -al /usr/lib/libav*
+
 
 # Copy project Files
 COPY root/ /
