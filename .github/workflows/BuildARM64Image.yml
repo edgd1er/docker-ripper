@@ -1,11 +1,11 @@
 name: Build ARM64 Image with MakeMKV from PPA
 
 on:
-  schedule:
-    - cron: "0 0 * * 0"
-  push:
-    paths-ignore:
-      - 'manual-build/**'
+#  schedule:
+#    - cron: "0 0 * * 0"
+#  push:
+#    paths-ignore:
+#      - 'manual-build/**'
   workflow_dispatch:
 
 env:

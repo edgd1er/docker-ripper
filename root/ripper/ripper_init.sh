@@ -55,7 +55,9 @@ setNotificationConfig() {
 #Main
 setTimeZone
 getVersion
-setNotificationConfig
+if [[ -f ${NOTIFICATION_SETTINGS} ]]; then
+  setNotificationConfig
+fi
 
 [[ $(id -u nobody) -ne ${NUID:-99} ]] && echo "setting uid as ${NUID}" && usermod -u ${NUID:-99} nobody
 [[ $(id -g nobody) -ne ${NGID:-100} ]] && echo "setting gid as ${NGID}" && usermod -g ${NGID:-100} nobody
